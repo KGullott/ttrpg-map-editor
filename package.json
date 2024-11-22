@@ -1,0 +1,24 @@
+{
+  "name": "ttrpg-map-editor",
+  "version": "1.0.0",
+  "description": "",
+  "main": "src/server/index",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "tsc tsconfig.json",
+    "dev": "tsx ./src/server/index"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.19.2",
+    "tsx": "^4.19.2"
+  },
+  "type": "module",
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.6.3"
+  }
+}
