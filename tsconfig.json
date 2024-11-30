@@ -1,0 +1,32 @@
+{
+    "$schema": "https://json.schemastore.org/tsconfig",
+    "compilerOptions": {
+        "lib": [
+            "dom",
+            "DOM.Iterable"
+        ],
+        "baseUrl": "./",
+        "module": "es2022",
+        "target": "es2022",
+        "allowSyntheticDefaultImports": true,
+        "esModuleInterop": true,
+        "forceConsistentCasingInFileNames": true,
+        "isolatedModules": true,
+        "moduleResolution": "node",
+        "skipLibCheck": true,
+        "resolveJsonModule": true,
+        "strict": true,
+        "noImplicitAny": true,
+        "typeRoots": [
+            "./node_modules/@types",
+            "./typings"
+        ],
+        "outDir": "./dist"
+    },
+    "include": [
+        "src/**/*.ts"
+    ],
+    "exclude": [
+        "node_modules"
+    ]
+}
