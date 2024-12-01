@@ -1,66 +1,60 @@
-import express from 'express'
-import { createServer } from 'vite'
-import { App } from 'src/client/app/app'
+import express, { Response, Request } from 'express'
+import { createServer as createViteServer } from 'vite'
+import fs from 'node:fs'
+import path from 'node:path'
 
-// Constants
-// const isProduction = process.env.NODE_ENV === 'production'
-const port = process.env.PORT || 3000
-const base = process.env.BASE || '/'
+async function createServer() {
+  const app = express()
 
-// // Cached production assets
-// const templateHtml = isProduction
-//   ? await fs.readFile('./dist/client/index.html', 'utf-8')
-//   : ''
+  // Create Vite server in middleware mode and configure the app type as
+  // 'custom', disabling Vite's own HTML serving logic so parent server
+  // can take control
+  const vite = await createViteServer({
+    server: { middlewareMode: true },
+    appType: 'custom'
+  })
 
-// Create http server
-const app = express()
+  // Use vite's connect instance as middleware. If you use your own
+  // express router (express.Router()), you should use router.use
+  // When the server restarts (for example after the user modifies
+  // vite.config.js), `vite.middlewares` is still going to be the same
+  // reference (with a new internal stack of Vite and plugin-injected
+  // middlewares). The following is valid even after restarts.
+  app.use(vite.middlewares)
 
-// Add Vite or respective production middlewares
-// let vite: ViteDevServer
-// if (!isProduction) {
-const vite = await createServer({
-  server: { middlewareMode: true },
-  appType: 'custom',
-  base,
-})
-app.use(vite.middlewares)
-// } else {
-//   app.use(compression())
-//   app.use(base, sirv('./dist/client', { extensions: [] }))
-// }
+  app.use('*', async (req: Request, res: Response) => {
+    const url = req.originalUrl;
+    // 1. get index.html
+    // 1. Read index.html
+    let template = fs.readFileSync(
+      path.resolve(__dirname, 'index.html'),
+      'utf-8',
+    )
 
-// Serve HTML
-app.use('*all', async (req, res) => {
-  try {
-    const url = req.originalUrl.replace(base, '')
-
-    let template: string
-    // if (!isProduction) {
-    // Always read fresh template in development
-    template = App()
+    // 2. Apply Vite HTML transforms. This injects the Vite HMR client,
+    //    and also applies HTML transforms from Vite plugins, e.g. global
+    //    preambles from @vitejs/plugin-react
     template = await vite.transformIndexHtml(url, template)
-    const render = (await vite.ssrLoadModule('/src/entry-server.js')).render
-    // } else {
-    //   template = templateHtml
-    //   render = (await import('./dist/server/entry-server.js')).render
-    // }
 
-    const rendered = await render(url)
+    // 3. Load the server entry. ssrLoadModule automatically transforms
+    //    ESM source code to be usable in Node.js! There is no bundling
+    //    required, and provides efficient invalidation similar to HMR.
+    const { render } = await vite.ssrLoadModule('/src/entry-server.js')
 
-    const html = template
-      .replace(`<!--app-head-->`, rendered.head ?? '')
-      .replace(`<!--app-html-->`, rendered.html ?? '')
+    // 4. render the app HTML. This assumes entry-server.js's exported
+    //     `render` function calls appropriate framework SSR APIs,
+    //    e.g. ReactDOMServer.renderToString()
+    const appHtml = await render(url)
 
-    res.status(200).set({ 'Content-Type': 'text/html' }).send(html)
-  } catch (e) {
-    const error = e as Error
-    vite?.ssrFixStacktrace(error)
-    console.log(error.stack)
-    res.status(500).end(error.stack)
-  }
-})
+    // 5. Inject the app-rendered HTML into the template.
+    const html = template.replace(`<!--ssr-outlet-->`, () => appHtml)
 
-// Start http server
-app.listen(port, () => {
-  console.log(`Server started at http://localhost:${port}`)
-})
+
+    // 6. Send the rendered HTML back.
+    res.status(200).set({ 'Content-Type': 'text/html' }).end(html)
+  })
+
+  app.listen(3000)
+}
+
+createServer()
